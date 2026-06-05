@@ -119,9 +119,10 @@ label{font-size:12px;color:#64748b;display:block;margin-bottom:4px;margin-top:10
 <div id="modal-gmail" class="overlay" style="display:none">
   <div class="modal" style="border-color:#166534">
     <h2 style="font-size:17px;color:#4ade80;margin-bottom:8px">📧 Sincronizar con Gmail</h2>
-    <p style="font-size:12px;color:#64748b;margin-bottom:20px;line-height:1.6">Buscará correos de los últimos <b style="color:#94a3b8">7 días</b> usando tus instrucciones de entrenamiento.</p>
+    <p style="font-size:12px;color:#64748b;margin-bottom:12px;line-height:1.6">Buscará correos de los últimos <b style="color:#94a3b8">7 días</b> usando tus instrucciones de entrenamiento.</p>
+    <div id="gmail-token-status" style="margin-bottom:16px;padding:10px 14px;background:#0f0f1a;border-radius:8px"></div>
     <div id="gmail-idle">
-      <button class="btn" onclick="syncGmail()" style="width:100%;background:#166534;border:1px solid #4ade80;color:#4ade80;padding:12px;font-size:14px">🔍 Iniciar búsqueda en Gmail</button>
+      <button class="btn" onclick="syncGmail()" id="btn-gmail-start" style="width:100%;background:#166534;border:1px solid #4ade80;color:#4ade80;padding:12px;font-size:14px">🔍 Iniciar búsqueda en Gmail</button>
     </div>
     <div id="gmail-loading" style="display:none;background:#0f0f1a;border-radius:10px;padding:16px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -387,7 +388,18 @@ function saveTraining(){
   s.style.display="inline";setTimeout(()=>s.style.display="none",2000);
 }
 
-// GMAIL
+// GMAIL TOKEN
+let gmailToken = localStorage.getItem("gmail_token") || "";
+
+// Captura el token si viene en la URL tras el login con Google
+(function captureToken(){
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("access_token");
+  const authError = params.get("auth");
+  if(token){ gmailToken = token; localStorage.setItem("gmail_token", token); }
+  if(token || authError){ window.history.replaceState({}, "", window.location.pathname); }
+})();
+
 function resetGmail(){
   document.getElementById("gmail-idle").style.display="block";
   document.getElementById("gmail-loading").style.display="none";
@@ -396,23 +408,43 @@ function resetGmail(){
   document.getElementById("gmail-log").innerHTML="";
   document.getElementById("gmail-log2").innerHTML="";
   document.getElementById("gmail-summary").style.display="none";
+  updateGmailStatus();
 }
+
+function updateGmailStatus(){
+  const statusEl = document.getElementById("gmail-token-status");
+  if(!statusEl) return;
+  if(gmailToken){
+    statusEl.innerHTML=`<span style="color:#4ade80;font-size:12px">✓ Gmail conectado</span> <button onclick="disconnectGmail()" style="background:transparent;border:none;color:#f87171;font-size:11px;cursor:pointer;margin-left:8px">Desconectar</button>`;
+  } else {
+    statusEl.innerHTML=`<span style="color:#f87171;font-size:12px">✗ Gmail no conectado</span>`;
+  }
+}
+
+function disconnectGmail(){
+  gmailToken=""; localStorage.removeItem("gmail_token"); updateGmailStatus();
+}
+
 function gmailLog(msg,target){
   const d=document.createElement("div");
   d.style.cssText="font-size:12px;color:#64748b;margin-bottom:4px";
   d.textContent=msg;
   document.getElementById(target||"gmail-log").appendChild(d);
 }
+
 async function syncGmail(){
+  if(!gmailToken){
+    window.location.href="https://dashboard-postulaciones.vercel.app/api/auth/login";
+    return;
+  }
   document.getElementById("gmail-idle").style.display="none";
   document.getElementById("gmail-loading").style.display="block";
-  const sevenDaysAgo=new Date(Date.now()-7*24*60*60*1000).toISOString().split("T")[0];
-  gmailLog("🔍 Conectando con Gmail...");
+  gmailLog("🔍 Buscando correos de postulaciones...");
   try{
     const res=await fetch("https://dashboard-postulaciones.vercel.app/api/sync",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({training})
+      body:JSON.stringify({training, access_token: gmailToken})
     });
     if(!res.ok) throw new Error(`Error del servidor: ${res.status}`);
     const data=await res.json();
@@ -433,6 +465,9 @@ async function syncGmail(){
     document.getElementById("gmail-result").style.display="block";
     document.getElementById("btn-retry-gmail").style.display="inline-block";
     gmailLog(`❌ Error: ${err.message}`,"gmail-log2");
+    if(err.message.includes("Token") || err.message.includes("401")){
+      gmailToken=""; localStorage.removeItem("gmail_token"); updateGmailStatus();
+    }
   }
 }
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
