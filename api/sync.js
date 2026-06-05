@@ -24,7 +24,7 @@ export default async function handler(req, res) {
         "anthropic-beta": "mcp-client-2025-04-04"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-5",
         max_tokens: 4000,
         system: `Eres un asistente que analiza correos de Gmail para detectar postulaciones laborales.
 Busca correos desde ${sevenDaysAgo} hasta hoy (últimos 7 días).
