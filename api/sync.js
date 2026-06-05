@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
-  // Permite que tu dashboard en GitHub Pages pueda llamar a este servidor
-  res.setHeader("Access-Control-Allow-Origin", "https://ignaciomesaguerrero.github.io");
+  // Permite llamadas desde cualquier origen (necesario para GitHub Pages)
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
